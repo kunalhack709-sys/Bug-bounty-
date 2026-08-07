@@ -1,0 +1,6 @@
+{
+  "name": "Bug Bounty Companion",
+  "description": "AI-powered mobile security research methodology assistant and Termux CLI reference guide.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
