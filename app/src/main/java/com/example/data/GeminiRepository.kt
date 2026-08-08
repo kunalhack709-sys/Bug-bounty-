@@ -83,15 +83,24 @@ object GeminiRepository {
         )
     )
 
-    suspend fun sendMessage(history: List<ChatMessage>, newMessageText: String): String = withContext(Dispatchers.IO) {
-        val apiKey = try {
-            BuildConfig.GEMINI_API_KEY
-        } catch (e: Exception) {
-            ""
+    suspend fun sendMessage(
+        history: List<ChatMessage>,
+        newMessageText: String,
+        customApiKey: String? = null,
+        temperature: Float = 0.7f
+    ): String = withContext(Dispatchers.IO) {
+        val apiKey = if (!customApiKey.isNullOrBlank()) {
+            customApiKey.trim()
+        } else {
+            try {
+                BuildConfig.GEMINI_API_KEY
+            } catch (e: Exception) {
+                ""
+            }
         }
 
         if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-            return@withContext "API Key missing or unconfigured. Please add your GEMINI_API_KEY in the AI Studio Secrets panel."
+            return@withContext "API Key missing or unconfigured. Please enter your Gemini API Key in Settings or add it in the AI Studio Secrets panel."
         }
 
         val contentList = mutableListOf<Content>()
@@ -117,7 +126,7 @@ object GeminiRepository {
         val request = GeminiRequest(
             contents = contentList,
             systemInstruction = SYSTEM_INSTRUCTION,
-            generationConfig = GenerationConfig(temperature = 0.7f)
+            generationConfig = GenerationConfig(temperature = temperature)
         )
 
         try {
@@ -126,6 +135,29 @@ object GeminiRepository {
             reply ?: "No response generated from Gemini API."
         } catch (e: Exception) {
             "Error contacting Gemini API: ${e.localizedMessage ?: e.message ?: "Unknown error"}"
+        }
+    }
+
+    suspend fun testApiKey(key: String): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        val apiKey = key.trim()
+        if (apiKey.isBlank()) {
+            return@withContext Pair(false, "API Key is empty.")
+        }
+
+        val request = GeminiRequest(
+            contents = listOf(Content(role = "user", parts = listOf(Part(text = "Hello, respond with OK."))))
+        )
+
+        try {
+            val response = apiService.generateContent(apiKey, request)
+            val reply = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+            if (!reply.isNullOrBlank()) {
+                Pair(true, "API Key validated successfully! Response: $reply")
+            } else {
+                Pair(false, "API call returned empty response.")
+            }
+        } catch (e: Exception) {
+            Pair(false, "Validation failed: ${e.localizedMessage ?: e.message ?: "Invalid key or network error"}")
         }
     }
 }

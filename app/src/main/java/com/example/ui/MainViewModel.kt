@@ -1,8 +1,10 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.BuildConfig
 import com.example.data.AppDatabase
 import com.example.data.ChatMessage
 import com.example.data.GeminiRepository
@@ -13,13 +15,38 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+    private val prefs = application.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+
     private val db = AppDatabase.getDatabase(application)
     private val chatDao = db.chatDao()
     private val noteDao = db.noteDao()
+
+    private val _customApiKey = MutableStateFlow(prefs.getString("custom_gemini_api_key", "") ?: "")
+    val customApiKey: StateFlow<String> = _customApiKey.asStateFlow()
+
+    private val _modelTemperature = MutableStateFlow(prefs.getFloat("model_temperature", 0.7f))
+    val modelTemperature: StateFlow<Float> = _modelTemperature.asStateFlow()
+
+    val isSystemKeyAvailable: Boolean
+        get() = try {
+            val key = BuildConfig.GEMINI_API_KEY
+            key.isNotBlank() && key != "MY_GEMINI_API_KEY"
+        } catch (e: Exception) {
+            false
+        }
+
+    val keyStatus: StateFlow<String> = _customApiKey.map { key ->
+        when {
+            key.isNotBlank() -> "Custom Key Active 🟢"
+            isSystemKeyAvailable -> "AI Studio Secrets Key Active 🔵"
+            else -> "No API Key Configured 🔴"
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Checking...")
 
     val chatMessages: StateFlow<List<ChatMessage>> = chatDao.getAllMessages()
         .stateIn(
@@ -45,6 +72,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _searchQuery.value = query
     }
 
+    fun saveApiKey(key: String) {
+        val trimmed = key.trim()
+        _customApiKey.value = trimmed
+        prefs.edit().putString("custom_gemini_api_key", trimmed).apply()
+    }
+
+    fun clearApiKey() {
+        _customApiKey.value = ""
+        prefs.edit().remove("custom_gemini_api_key").apply()
+    }
+
+    fun updateTemperature(temp: Float) {
+        _modelTemperature.value = temp
+        prefs.edit().putFloat("model_temperature", temp).apply()
+    }
+
+    fun testApiKeyConnection(keyToTest: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val (success, message) = GeminiRepository.testApiKey(keyToTest)
+            onResult(success, message)
+        }
+    }
+
     fun sendMessage(userText: String) {
         if (userText.isBlank() || _isGenerating.value) return
 
@@ -54,7 +104,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isGenerating.value = true
 
             val currentHistory = chatMessages.value
-            val responseText = GeminiRepository.sendMessage(currentHistory, userText)
+            val responseText = GeminiRepository.sendMessage(
+                history = currentHistory,
+                newMessageText = userText,
+                customApiKey = _customApiKey.value,
+                temperature = _modelTemperature.value
+            )
 
             val botMsg = ChatMessage(text = responseText, isUser = false)
             chatDao.insertMessage(botMsg)

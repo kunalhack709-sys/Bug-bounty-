@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -34,6 +35,7 @@ import com.example.ui.MainViewModel
 import com.example.ui.screens.ChatScreen
 import com.example.ui.screens.GuideScreen
 import com.example.ui.screens.SavedNotesScreen
+import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.BugBountyTheme
 import com.example.ui.theme.CyberCyan
 import com.example.ui.theme.NeonGreen
@@ -44,6 +46,7 @@ sealed class NavTab(val title: String, val icon: ImageVector) {
     object Chat : NavTab("AI Chat", Icons.Default.Terminal)
     object Guides : NavTab("Guides", Icons.Default.MenuBook)
     object Notes : NavTab("Notes", Icons.Default.Bookmark)
+    object Settings : NavTab("Settings", Icons.Default.Settings)
 }
 
 class MainActivity : ComponentActivity() {
@@ -63,7 +66,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppScreen(viewModel: MainViewModel) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf(NavTab.Chat, NavTab.Guides, NavTab.Notes)
+    val tabs = listOf(NavTab.Chat, NavTab.Guides, NavTab.Notes, NavTab.Settings)
 
     val messages by viewModel.chatMessages.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
@@ -122,6 +125,9 @@ fun MainAppScreen(viewModel: MainViewModel) {
                 2 -> SavedNotesScreen(
                     viewModel = viewModel,
                     notes = savedNotes
+                )
+                3 -> SettingsScreen(
+                    viewModel = viewModel
                 )
             }
         }
