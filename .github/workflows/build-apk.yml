@@ -2,7 +2,7 @@ name: Build Debug APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -19,33 +19,20 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Verify Java environment
-        run: |
-          java -version
-          echo "JAVA_HOME=$JAVA_HOME"
-          JAVA_VER=$(java -version 2>&1 | head -n 1 | awk -F '"' '{print $2}' | awk -F '.' '{print $1}')
-          echo "Detected Java major version: $JAVA_VER"
-          if [ "$JAVA_VER" -lt 17 ]; then
-            echo "Error: Java major version must be 17 or newer"
-            exit 1
-          fi
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.3.1'
           validate-wrappers: false
 
-      - name: Create temporary debug keystore
+      - name: Make Gradlew Executable
+        run: chmod +x gradlew
+
+      - name: Create debug keystore
         run: |
-          mkdir -p ~/.android
-          KEYSTORE_PATH="$HOME/.android/debug.keystore"
-          if [ -f "$KEYSTORE_PATH" ] || [ -f "debug.keystore" ]; then
-            echo "Debug keystore already exists."
-          else
-            echo "Generating temporary debug keystore..."
+          if [ ! -f "debug.keystore" ]; then
+            echo "Generating debug.keystore..."
             keytool -genkey -v \
-              -keystore "$KEYSTORE_PATH" \
+              -keystore "debug.keystore" \
               -storepass android \
               -alias androiddebugkey \
               -keypass android \
@@ -54,14 +41,9 @@ jobs:
               -keysize 2048 \
               -validity 10000
           fi
-          if [ ! -f "$KEYSTORE_PATH" ] && [ ! -f "debug.keystore" ]; then
-            echo "Error: Debug keystore was not found after generation."
-            exit 1
-          fi
-          echo "Confirmed debug keystore exists."
 
       - name: Build Debug APK
-        run: xvfb-run gradle :app:assembleDebug --stacktrace --no-daemon
+        run: xvfb-run ./gradlew :app:assembleDebug --stacktrace
 
       - name: Verify Debug APK
         run: |
@@ -70,14 +52,14 @@ jobs:
             echo "Debug APK found at $EXPECTED_APK"
           else
             echo "Error: $EXPECTED_APK is missing!"
-            echo "Searching inside app/build/outputs/apk for any generated APKs:"
-            find app/build/outputs/apk -name "*.apk" || true
+            find app/build/outputs/apk -name "*.apk"
             exit 1
           fi
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+

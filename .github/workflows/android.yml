@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:
 
 jobs:
   build:
@@ -28,16 +29,17 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.3.1'
           validate-wrappers: false
 
-      - name: Create temporary debug keystore
+      - name: Make Gradlew Executable
+        run: chmod +x gradlew
+
+      - name: Create debug keystore
         run: |
-          mkdir -p ~/.android
-          KEYSTORE_PATH="$HOME/.android/debug.keystore"
-          if [ ! -f "$KEYSTORE_PATH" ] && [ ! -f "debug.keystore" ]; then
+          if [ ! -f "debug.keystore" ]; then
+            echo "Generating debug.keystore..."
             keytool -genkey -v \
-              -keystore "$KEYSTORE_PATH" \
+              -keystore "debug.keystore" \
               -storepass android \
               -alias androiddebugkey \
               -keypass android \
@@ -48,10 +50,21 @@ jobs:
           fi
 
       - name: Run Unit Tests
-        run: xvfb-run gradle :app:testDebugUnitTest --stacktrace --no-daemon
+        run: xvfb-run ./gradlew :app:testDebugUnitTest --stacktrace
 
       - name: Build Debug APK
-        run: xvfb-run gradle :app:assembleDebug --stacktrace --no-daemon
+        run: xvfb-run ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Verify Debug APK
+        run: |
+          EXPECTED_APK="app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$EXPECTED_APK" ]; then
+            echo "Debug APK found at $EXPECTED_APK"
+          else
+            echo "Error: $EXPECTED_APK is missing!"
+            find app/build/outputs/apk -name "*.apk"
+            exit 1
+          fi
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
