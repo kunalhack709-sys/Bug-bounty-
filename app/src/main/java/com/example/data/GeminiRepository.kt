@@ -3,12 +3,12 @@ package com.example.data
 import com.example.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
@@ -41,8 +41,9 @@ data class Candidate(
 )
 
 interface GeminiApiService {
-    @POST("v1beta/models/gemini-3.5-flash:generateContent")
+    @POST("v1beta/models/{model}:generateContent")
     suspend fun generateContent(
+        @Path("model") model: String,
         @Query("key") apiKey: String,
         @Body request: GeminiRequest
     ): GeminiResponse
@@ -51,10 +52,18 @@ interface GeminiApiService {
 object GeminiRepository {
     private const val BASE_URL = "https://generativelanguage.googleapis.com/"
 
+    private val CANDIDATE_MODELS = listOf(
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-flash-latest",
+        "gemini-2.5-flash-lite"
+    )
+
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
     private val apiService: GeminiApiService by lazy {
@@ -70,14 +79,20 @@ object GeminiRepository {
         parts = listOf(
             Part(
                 text = """
-                You are Bug Bounty AI, an ethical security research methodology advisor and Android Termux environment assistant.
-                
-                YOUR SCOPE & GUIDELINES:
-                1. Focus strictly on ethical security methodologies, OWASP guidelines, vulnerability analysis frameworks, bug reporting formats, and Termux CLI command workflows on Android.
-                2. Explain security research techniques clearly and educationally (e.g., recon methodology, port scanning parameters, directory fuzzing setup, HTTP request analysis, Android APK decompilation commands with jadx/apktool).
-                3. Do NOT generate functional attack payloads, actionable exploits, or malicious code designed to harm specific targets or bypass security controls.
-                4. Always advocate for proper authorization, scope adherence, bug bounty platform rules (HackerOne, Bugcrowd, Intigriti), and responsible disclosure.
-                5. Provide helpful Termux setup tips for Android bug bounty hunting (e.g., pkg install git python curl nmap, setting up bash aliases, Go environment setup in Termux, memory management on mobile devices).
+                You are Bug Bounty AI, an elite, authoritative ethical hacking & security research advisor and Android Termux specialist.
+
+                YOUR CORE SCOPE & CAPABILITIES:
+                1. Web Application Penetration Testing: Deep knowledge of OWASP Top 10 (SQLi, XSS, SSRF, IDOR/BOLA, CSRF, CORS, LFI/RFI, Business Logic Flaws, JWT, OAuth vulnerabilities).
+                2. Reconnaissance & Asset Discovery: Subdomain enumeration (subfinder, assetfinder, amass), live probing (httpx), URL mining (waybackurls, gau), parameter discovery (arjun).
+                3. Mobile & Android SAST: Reverse engineering APKs with JADX, searching for hardcoded secrets, analyzing AndroidManifest.xml exported components, Frida/Objection runtime manipulation.
+                4. API & GraphQL Security: BOLA/BFLA testing, GraphQL schema introspection, mass assignment, rate limiting bypasses.
+                5. Content Discovery & Fuzzing: Path fuzzing with ffuf/dirsearch, wordlist selection, WAF evasion techniques.
+                6. Termux CLI Environment: Command execution in Termux, package installations, Golang setup, Python virtual environments, background wakelocks.
+                7. Bug Bounty Platform Methodologies: Professional bug report writing for HackerOne, Bugcrowd, Intigriti, CVSS 3.1 scoring, writing clear reproduction steps.
+
+                GUIDELINES:
+                - Explain security concepts clearly, educationally, and comprehensively with practical CLI commands, HTTP request/response examples, and mitigation steps.
+                - Always advocate for authorization, scope adherence, and responsible disclosure. Do NOT generate destructive attack scripts or automated exploit toolchains aimed at damaging un-authorized systems.
                 """.trimIndent()
             )
         )
@@ -97,10 +112,6 @@ object GeminiRepository {
             } catch (e: Exception) {
                 ""
             }
-        }
-
-        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-            return@withContext "API Key missing or unconfigured. Please enter your Gemini API Key in Settings or add it in the AI Studio Secrets panel."
         }
 
         val contentList = mutableListOf<Content>()
@@ -129,12 +140,27 @@ object GeminiRepository {
             generationConfig = GenerationConfig(temperature = temperature)
         )
 
-        try {
-            val response = apiService.generateContent(apiKey, request)
-            val reply = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-            reply ?: "No response generated from Gemini API."
-        } catch (e: Exception) {
-            "Error contacting Gemini API: ${e.localizedMessage ?: e.message ?: "Unknown error"}"
+        // If API key is present and non-empty, try candidate Gemini models
+        if (apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
+            for (model in CANDIDATE_MODELS) {
+                try {
+                    val response = apiService.generateContent(model, apiKey, request)
+                    val reply = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                    if (!reply.isNullOrBlank()) {
+                        return@withContext reply
+                    }
+                } catch (e: Exception) {
+                    // Try next model candidate
+                }
+            }
+        }
+
+        // If API Key is missing or all online calls failed, fall back to BugBountyKnowledgeBase
+        val fallbackResponse = BugBountyKnowledgeBase.generateExpertResponse(newMessageText)
+        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+            "[Bug Bounty Expert Mode - Offline Engine Active]\n\n$fallbackResponse"
+        } else {
+            "[Note: Gemini API unavailable or quota reached. Serving from Bug Bounty Expert Engine]\n\n$fallbackResponse"
         }
     }
 
@@ -148,16 +174,19 @@ object GeminiRepository {
             contents = listOf(Content(role = "user", parts = listOf(Part(text = "Hello, respond with OK."))))
         )
 
-        try {
-            val response = apiService.generateContent(apiKey, request)
-            val reply = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-            if (!reply.isNullOrBlank()) {
-                Pair(true, "API Key validated successfully! Response: $reply")
-            } else {
-                Pair(false, "API call returned empty response.")
+        var lastError = ""
+        for (model in CANDIDATE_MODELS) {
+            try {
+                val response = apiService.generateContent(model, apiKey, request)
+                val reply = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                if (!reply.isNullOrBlank()) {
+                    return@withContext Pair(true, "API Key validated successfully using model $model! Response: $reply")
+                }
+            } catch (e: Exception) {
+                lastError = e.localizedMessage ?: e.message ?: "Error testing model $model"
             }
-        } catch (e: Exception) {
-            Pair(false, "Validation failed: ${e.localizedMessage ?: e.message ?: "Invalid key or network error"}")
         }
+
+        Pair(false, "Validation failed across candidate models: $lastError")
     }
 }

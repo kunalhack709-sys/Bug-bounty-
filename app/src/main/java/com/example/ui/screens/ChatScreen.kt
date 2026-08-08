@@ -19,10 +19,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -173,10 +173,12 @@ fun ChatScreen(
 
                     // Prompt Chips
                     val samplePrompts = listOf(
-                        "How do I find web vulnerabilities on a website using Termux?",
+                        "How do I find web vulnerabilities on a target using Termux?",
                         "What is the step-by-step web recon workflow using subfinder and httpx?",
-                        "How to analyze web security headers and CORS using curl in Android terminal?",
-                        "How to decompile Android APKs using JADX in Termux?"
+                        "How to test for IDOR and BOLA vulnerabilities in web APIs?",
+                        "How to decompile and search Android APKs using JADX in Termux?",
+                        "How to write a professional HackerOne bug bounty report?",
+                        "How to test for SSRF and cloud metadata exposure?"
                     )
 
                     samplePrompts.forEach { prompt ->
@@ -296,7 +298,7 @@ fun ChatScreen(
                     .testTag("send_message_button")
             ) {
                 Icon(
-                    imageVector = Icons.Default.Send,
+                    imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = "Send Message",
                     tint = if (!isGenerating && inputText.isNotBlank()) TerminalBlack else MaterialTheme.colorScheme.onSurfaceVariant
                 )

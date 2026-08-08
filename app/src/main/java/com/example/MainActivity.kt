@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -44,7 +44,7 @@ import com.example.ui.theme.TerminalDarkSurface
 
 sealed class NavTab(val title: String, val icon: ImageVector) {
     object Chat : NavTab("AI Chat", Icons.Default.Terminal)
-    object Guides : NavTab("Guides", Icons.Default.MenuBook)
+    object Guides : NavTab("Guides", Icons.AutoMirrored.Filled.MenuBook)
     object Notes : NavTab("Notes", Icons.Default.Bookmark)
     object Settings : NavTab("Settings", Icons.Default.Settings)
 }
