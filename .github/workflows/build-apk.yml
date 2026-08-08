@@ -61,7 +61,7 @@ jobs:
           echo "Confirmed debug keystore exists."
 
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --stacktrace --no-daemon -Pkotlin.compiler.execution.strategy=daemon
+        run: xvfb-run gradle :app:assembleDebug --stacktrace --no-daemon
 
       - name: Verify Debug APK
         run: |
