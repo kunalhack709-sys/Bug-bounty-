@@ -100,6 +100,13 @@ object TermuxGuideData {
             description = "Download target JavaScript bundles and extract API paths or endpoints using grep/ripgrep.",
             command = "curl -s https://target.com/app.js | grep -oE '(https?://|/api/)[a-zA-Z0-0_/-]+'",
             tags = listOf("Web", "JavaScript", "Endpoints", "API")
+        ),
+        TermuxGuideItem(
+            title = "Detailed Website Bug Hunting Methodology",
+            category = "Web Audit",
+            description = "Step-by-step methodology for finding bugs in web applications: recon, endpoint mapping, authorization testing, injection attacks, and logic flaws.",
+            command = "subfinder -d target.com -all | httpx -title -tech-detect | ffuf -u https://target.com/FUZZ -w wordlist.txt -mc 200,301,403",
+            tags = listOf("Web", "Bug Bounty", "Methodology", "IDOR", "XSS", "SSRF")
         )
     )
 }
