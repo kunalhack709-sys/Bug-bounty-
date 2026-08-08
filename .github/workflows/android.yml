@@ -57,7 +57,10 @@ jobs:
         if: always()
         with:
           name: unit-test-reports
-          path: app/build/reports/tests/testDebugUnitTest/
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          if-no-files-found: ignore
 
       - name: Build Debug APK
         run: xvfb-run ./gradlew :app:assembleDebug --stacktrace
